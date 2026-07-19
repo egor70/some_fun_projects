@@ -1,0 +1,34 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.signal import convolve2d
+import time
+
+# Размер поля
+size = 100
+grid = np.random.choice([0, 1], size=(size, size), p=[0.7, 0.3])
+
+# Ядро свертки (соседи)
+kernel = np.ones((3, 3))
+kernel[1, 1] = 0
+
+plt.figure(figsize=(12, 12))
+for gen in range(200):
+    # Подсчет живых соседей
+    neighbors = convolve2d(grid, kernel, mode='same', boundary='wrap')
+
+    # Правила игры
+    new_grid = np.zeros_like(grid)
+    # Рождение (3 соседа)
+    new_grid[(grid == 0) & (neighbors == 3)] = 1
+    # Выживание (2 или 3 соседа)
+    new_grid[(grid == 1) & ((neighbors == 2) | (neighbors == 3))] = 1
+
+    grid = new_grid
+
+    # Отрисовка
+    plt.clf()
+    plt.imshow(grid, cmap='gray')
+    plt.title(f"Поколение {gen}")
+    plt.axis('off')
+    plt.draw()
+    plt.pause(0.05)
