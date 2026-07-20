@@ -1,0 +1,160 @@
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from datetime import datetime
+
+# --- НАСТРОЙКА СТРАНИЦЫ (Широкий режим, тема) ---
+st.set_page_config(page_title="Sales Dashboard", layout="wide", page_icon="📊")
+
+st.title("🚀 Аналитический дашборд продаж")
+st.markdown("---")
+
+
+# --- 1. ЗАГРУЗКА И ПРЕДОБРАБОТКА ДАННЫХ ---
+@st.cache_data
+def load_data():
+    # Замените 'sales_data_sample.csv' на путь к вашему файлу
+    df = pd.read_csv(r'C:\Users\User\Desktop\Тестовое\sales_data_sample.csv', delimiter=',', encoding='windows-1252')
+
+    # Преобразуем дату (в вашем файле формат m/d/yyyy H:M)
+    df['ORDERDATE'] = pd.to_datetime(df['ORDERDATE'], format='%m/%d/%Y %H:%M')
+
+    # Создаем полезный столбец "Год-Месяц" для фильтров
+    df['YEAR_MONTH'] = df['ORDERDATE'].dt.to_period('M').astype(str)
+
+    # Сортируем по дате
+    df = df.sort_values('ORDERDATE')
+    return df
+
+
+df = load_data()
+
+# --- 2. БОКОВАЯ ПАНЕЛЬ (ФИЛЬТРЫ) ---
+st.sidebar.header("🔍 Фильтры")
+
+# Фильтр по дате (слайдер)
+min_date = df['ORDERDATE'].min()
+max_date = df['ORDERDATE'].max()
+date_range = st.sidebar.slider(
+    "Выберите период:",
+    min_value=min_date.to_pydatetime(),
+    max_value=max_date.to_pydatetime(),
+    value=(min_date.to_pydatetime(), max_date.to_pydatetime())
+)
+
+# Фильтр по продукту
+product_list = ['Все'] + sorted(df['PRODUCTLINE'].unique().tolist())
+selected_product = st.sidebar.selectbox("Выберите категорию:", product_list)
+
+# --- 3. ПРИМЕНЕНИЕ ФИЛЬТРОВ ---
+mask = (df['ORDERDATE'] >= date_range[0]) & (df['ORDERDATE'] <= date_range[1])
+filtered_df = df[mask]
+
+if selected_product != 'Все':
+    filtered_df = filtered_df[filtered_df['PRODUCTLINE'] == selected_product]
+
+# --- 4. ВЕРХНИЕ KPI (Карточки) ---
+col1, col2, col3, col4 = st.columns(4)
+
+total_sales = filtered_df['SALES'].sum()
+total_orders = filtered_df['ORDERNUMBER'].nunique()
+avg_check = total_sales / total_orders if total_orders > 0 else 0
+total_items = filtered_df['QUANTITYORDERED'].sum()
+
+col1.metric("💰 Общая выручка", f"${total_sales:,.0f}")
+col2.metric("📦 Количество заказов", f"{total_orders:,}")
+col3.metric("🧾 Средний чек", f"${avg_check:,.0f}")
+col4.metric("📈 Продано единиц", f"{total_items:,}")
+
+st.markdown("---")
+
+# --- 5. ГРАФИКИ (2 колонки) ---
+
+# Левая колонка: Динамика продаж + Топ клиентов
+left_col, right_col = st.columns(2)
+
+with left_col:
+    st.subheader("📈 Динамика выручки по месяцам")
+
+    # Группируем по месяцам
+    monthly_sales = filtered_df.groupby('YEAR_MONTH')['SALES'].sum().reset_index()
+    monthly_sales['YEAR_MONTH'] = pd.to_datetime(monthly_sales['YEAR_MONTH'])
+    monthly_sales = monthly_sales.sort_values('YEAR_MONTH')
+    monthly_sales['YEAR_MONTH'] = monthly_sales['YEAR_MONTH'].dt.strftime('%b %Y')
+
+    fig1 = px.line(
+        monthly_sales,
+        x='YEAR_MONTH',
+        y='SALES',
+        markers=True,
+        title='Выручка по месяцам',
+        labels={'SALES': 'Выручка ($)', 'YEAR_MONTH': 'Месяц'}
+    )
+    fig1.update_traces(line_color='#4CAF50')
+    st.plotly_chart(fig1, use_container_width=True)
+
+with right_col:
+    st.subheader("🏆 Топ-5 клиентов по выручке")
+
+    top_customers = filtered_df.groupby('CUSTOMERNAME')['SALES'].sum().nlargest(5).reset_index()
+
+    fig2 = px.bar(
+        top_customers,
+        x='SALES',
+        y='CUSTOMERNAME',
+        orientation='h',
+        title='Кто приносит больше всего денег',
+        labels={'SALES': 'Выручка ($)', 'CUSTOMERNAME': 'Клиент'},
+        color='SALES',
+        color_continuous_scale='Blues'
+    )
+    fig2.update_layout(yaxis={'categoryorder': 'total ascending'})
+    st.plotly_chart(fig2, use_container_width=True)
+
+# --- 6. ВТОРОЙ РЯД ГРАФИКОВ ---
+st.markdown("---")
+col3, col4 = st.columns(2)
+
+with col3:
+    st.subheader("📊 Продажи по категориям продуктов")
+
+    product_sales = filtered_df.groupby('PRODUCTLINE')['SALES'].sum().reset_index()
+    product_sales = product_sales.sort_values('SALES', ascending=False)
+
+    fig3 = px.pie(
+        product_sales,
+        values='SALES',
+        names='PRODUCTLINE',
+        hole=0.4,
+        title='Доля каждой категории',
+        color_discrete_sequence=px.colors.qualitative.Set3
+    )
+    fig3.update_traces(textposition='inside', textinfo='percent+label')
+    st.plotly_chart(fig3, use_container_width=True)
+
+with col4:
+    st.subheader("🌍 Выручка по странам")
+
+    country_sales = filtered_df.groupby('COUNTRY')['SALES'].sum().nlargest(10).reset_index()
+
+    fig4 = px.bar(
+        country_sales,
+        x='COUNTRY',
+        y='SALES',
+        title='Топ-10 стран',
+        labels={'SALES': 'Выручка ($)', 'COUNTRY': 'Страна'},
+        color='SALES',
+        color_continuous_scale='Reds'
+    )
+    st.plotly_chart(fig4, use_container_width=True)
+
+# --- 7. ТАБЛИЦА С ДЕТАЛЯМИ (внизу) ---
+st.markdown("---")
+st.subheader("📋 Последние 10 транзакций")
+
+# Показываем только важные колонки
+display_cols = ['ORDERDATE', 'CUSTOMERNAME', 'PRODUCTLINE', 'SALES', 'COUNTRY', 'STATUS']
+last_orders = filtered_df[display_cols].tail(10).sort_values('ORDERDATE', ascending=False)
+last_orders['ORDERDATE'] = last_orders['ORDERDATE'].dt.strftime('%Y-%m-%d')
+st.dataframe(last_orders, use_container_width=True)
