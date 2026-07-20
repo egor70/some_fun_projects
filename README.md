@@ -33,12 +33,4 @@
 | [![Plotly](https://img.shields.io/badge/Plotly-5.18%2B-3F4F75?logo=plotly&logoColor=white)](https://plotly.com/) | Интерактивная визуализация данных |
 | [![Pandas](https://img.shields.io/badge/Pandas-2.0%2B-150458?logo=pandas&logoColor=white)](https://pandas.pydata.org/) | Обработка и анализ данных |
 
----
 
-## 📦 Установка и запуск
-
-### 1. Клонируйте репозиторий
-
-```bash
-git clone https://github.com/your-username/sales-dashboard.git
-cd sales-dashboard
