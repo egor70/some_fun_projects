@@ -8,7 +8,7 @@
 
 Интерактивный дашборд для анализа продаж, построенный на **Python** с использованием **Streamlit** и **Plotly**. Позволяет исследовать динамику выручки, категории продуктов, географию продаж и ключевые метрики в реальном времени.
 
-![Dashboard Preview](https://raw.githubusercontent.com/your-username/your-repo/main/screenshots/dashboard_preview.png)
+
 
 ---
 
